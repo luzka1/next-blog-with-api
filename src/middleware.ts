@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyJwt } from "./lib/login/manage-login";
 
 export async function middleware(request: NextRequest) {
-  const isLoginPage = request.nextUrl.pathname.startsWith("/admin/login");
+  const isLoginPage = request.nextUrl.pathname.startsWith("/login");
   const isAdminPage = request.nextUrl.pathname.startsWith("/admin/");
   const isGetRequest = request.method === "GET";
 
@@ -17,10 +16,10 @@ export async function middleware(request: NextRequest) {
     process.env.LOGIN_COOKIE_NAME || "loginSession",
   )?.value;
 
-  const isAuthenticated = await verifyJwt(jwtSession);
+  const isAuthenticated = !!jwtSession;
 
   if (!isAuthenticated) {
-    const loginUrl = new URL("/admin/login", request.url);
+    const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -28,5 +27,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/admin/:path",
+  matcher: "/admin/:path*",
 };

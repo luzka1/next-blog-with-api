@@ -1,22 +1,29 @@
 "use server";
 
-import { createLoginSession, verifyPassword } from "@/lib/login/manage-login";
+import {
+  createLoginSession,
+  createLoginSessionFromApi,
+  verifyPassword,
+} from "@/lib/login/manage-login";
+import { LoginSchema } from "@/lib/login/schemas";
+import { apiRequest } from "@/utils/api-request";
 import { asyncDelay } from "@/utils/async-delay";
+import { getZodErrorMessages } from "@/utils/get-zod-error-messages";
 import { redirect } from "next/navigation";
 
 type LoginActionState = {
-  username: string;
-  error: string;
+  email: string;
+  errors: string[];
 };
 
 export async function loginAction(state: LoginActionState, formData: FormData) {
-  const makeResult = ({ username = "", error = "" }) => ({ username, error });
+  const makeResult = ({ email = "", errors = [""] }) => ({ email, errors });
 
   const allowLogin = Boolean(Number(process.env.ALLOW_LOGIN));
 
   if (!allowLogin) {
     return makeResult({
-      error: "Login não autorizado!",
+      errors: ["Login não autorizado!"],
     });
   }
 
@@ -25,25 +32,37 @@ export async function loginAction(state: LoginActionState, formData: FormData) {
   await asyncDelay(simulateWaitMs);
 
   if (!(formData instanceof FormData))
-    return makeResult({ error: "Dados inválidos" });
+    return makeResult({ errors: ["Login não autorizado!"] });
 
-  const username = formData.get("username")?.toString().trim() || "";
-  const password = formData.get("password")?.toString().trim() || "";
+  const formObj = Object.fromEntries(formData.entries());
+  const formEmail = formObj?.email?.toString() || "";
+  const parsedFormData = LoginSchema.safeParse(formObj);
 
-  if (!username || !password) {
-    return makeResult({ username, error: "Digite o usuário e a senha" });
+  if (!parsedFormData.success) {
+    return {
+      email: formEmail,
+      errors: getZodErrorMessages(parsedFormData.error.format()),
+    };
   }
 
-  const isUsernameValid = username == process.env.LOGIN_USER;
-  const isPasswordValid = await verifyPassword(
-    password,
-    process.env.LOGIN_PASS || "",
+  const loginResponse = await apiRequest<{ accessToken: string }>(
+    "/auth/login",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(parsedFormData.data),
+    },
   );
 
-  if (!isUsernameValid || !isPasswordValid) {
-    return makeResult({ username, error: "Usuário ou senha inválidos" });
+  if (!loginResponse.success) {
+    return makeResult({
+      email: formEmail,
+      errors: loginResponse.errors,
+    });
   }
 
-  await createLoginSession(username);
+  await createLoginSessionFromApi(loginResponse.data.accessToken);
   redirect("/admin/post");
 }
