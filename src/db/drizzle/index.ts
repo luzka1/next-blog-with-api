@@ -1,34 +1,14 @@
-// src/db/drizzle/connection.ts
-import "dotenv/config";
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 import { postsTable } from "./schemas";
+import Database from "better-sqlite3";
+import { resolve } from "path";
 
-export function getDrizzleDb() {
-  const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
+const sqliteDatabasePath = resolve(process.cwd(), "db.sqlite3");
+const sqliteDatabase = new Database(sqliteDatabasePath);
 
-  if (!url) {
-    throw new Error(
-      "A variável de ambiente TURSO_DATABASE_URL não está definida. Verifique seu .env",
-    );
-  }
-
-  if (!authToken) {
-    throw new Error(
-      "A variável de ambiente TURSO_AUTH_TOKEN não está definida. Verifique seu .env",
-    );
-  }
-
-  const client = createClient({
-    url,
-    authToken,
-  });
-
-  return drizzle(client, {
-    schema: {
-      posts: postsTable,
-    },
-    logger: false,
-  });
-}
+export const drizzleDb = drizzle(sqliteDatabase, {
+  schema: {
+    posts: postsTable,
+  },
+  logger: false,
+});
