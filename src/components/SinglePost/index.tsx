@@ -1,8 +1,9 @@
-import { findPostBySlug } from "@/lib/post/public";
+import { findPublicPostBySlugFromApi } from "@/lib/post/public";
 import Image from "next/image";
 import { PostHeading } from "../PostHeading";
 import { PostDate } from "../PostDate";
 import { SafeMarkDown } from "../SafeMarkDown";
+import { notFound } from "next/navigation";
 
 type SinglePostProps = {
   slugParam: Promise<{ slug: string }>;
@@ -11,7 +12,13 @@ type SinglePostProps = {
 export async function SinglePost({ slugParam }: SinglePostProps) {
   const { slug } = await slugParam;
 
-  const post = await findPostBySlug(slug);
+  const postRes = await findPublicPostBySlugFromApi(slug);
+
+  if (!postRes.success) {
+    notFound();
+  }
+
+  const post = postRes.data;
 
   return (
     <article className="mb-16">
@@ -27,7 +34,7 @@ export async function SinglePost({ slugParam }: SinglePostProps) {
         <PostHeading url={`/post/${post.slug}`}>{post.title}</PostHeading>
 
         <p>
-          {post.author} | <PostDate dateTime={post.createdAt} />
+          {post.author.name} | <PostDate dateTime={post.createdAt} />
         </p>
       </header>
 

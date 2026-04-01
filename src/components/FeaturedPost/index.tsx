@@ -1,18 +1,26 @@
-import { findAllPublicPosts } from "@/lib/post/public";
+import { findAllPublicPostsFromApi } from "@/lib/post/public";
 import { PostCoverImage } from "../PostCoverImage";
 import { PostSummary } from "../PostSummary";
 import ErrorMessage from "../ErrorMessage";
 
 export async function FeaturedPost() {
-  const posts = await findAllPublicPosts();
+  const postRes = await findAllPublicPostsFromApi();
+  const noPostsFound = (
+    <ErrorMessage
+      contentTitle="Opa 😢"
+      content="Ainda não criamos nenhum post"
+    />
+  );
 
-  if (posts.length <= 0)
-    return (
-      <ErrorMessage
-        contentTitle="Ops!"
-        content="Ainda não criamos nenhum post 😢"
-      />
-    );
+  if (!postRes.success) {
+    return noPostsFound;
+  }
+
+  const posts = postRes.data;
+
+  if (posts.length <= 0) {
+    return noPostsFound;
+  }
 
   const featuredPost = posts[0];
 

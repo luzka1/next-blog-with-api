@@ -1,19 +1,19 @@
 "use server";
 
+import { getLoginSessionForApi } from "@/lib/login/manage-login";
 import {
-  makePartialPublicPost,
-  makePublicPostFromDb,
-  PublicPostDTO,
-} from "@/dto/post/dto";
-import { verifyLoginSession } from "@/lib/login/manage-login";
-import { PostUpdateSchema } from "@/lib/post/validations";
-import { postRepository } from "@/repositories/post";
+  PostUpdateSchema,
+  PublicPostForApiDto,
+  PublicPostSchemaForApi,
+  UpdatePostForApiSchema,
+} from "@/lib/post/schemas";
+import { authenticatedApiRequest } from "@/utils/authenticaded-api-request";
 import { getZodErrorMessages } from "@/utils/get-zod-error-messages";
 import { makeRandomString } from "@/utils/make-random-string";
 import { updateTag } from "next/cache";
 
 type UpdatePostActionState = {
-  formState: PublicPostDTO;
+  formState: PublicPostForApiDto;
   errors: string[];
   success?: string;
 };
@@ -22,14 +22,14 @@ export async function updatePostAction(
   prevState: UpdatePostActionState,
   formData: FormData,
 ): Promise<UpdatePostActionState> {
-  const isAuthenticated = await verifyLoginSession();
+  const isAuthenticated = await getLoginSessionForApi();
 
   const makeResult = ({
-    formState = makePartialPublicPost(prevState.formState),
+    formState = PublicPostSchemaForApi.parse(prevState.formState),
     errors = [],
     success,
   }: {
-    formState?: PublicPostDTO;
+    formState?: PublicPostForApiDto;
     errors?: string[];
     success?: string;
   }) => ({
@@ -51,11 +51,11 @@ export async function updatePostAction(
   }
 
   const formDataToObject = Object.fromEntries(formData.entries());
-  const zodParsedObject = PostUpdateSchema.safeParse(formDataToObject);
+  const zodParsedObject = UpdatePostForApiSchema.safeParse(formDataToObject);
 
   if (!isAuthenticated) {
     return makeResult({
-      formState: makePartialPublicPost(formDataToObject),
+      formState: PublicPostSchemaForApi.parse(formDataToObject),
       errors: ["Faça login em outra aba e tente novamente!"],
     });
   }
@@ -64,39 +64,36 @@ export async function updatePostAction(
     const errors = getZodErrorMessages(zodParsedObject.error.format());
 
     return makeResult({
-      formState: makePartialPublicPost(formDataToObject),
+      formState: PublicPostSchemaForApi.parse(formDataToObject),
       errors,
     });
   }
 
-  const validPostData = zodParsedObject.data;
+  const newPost = zodParsedObject.data;
 
-  const newPost = {
-    ...validPostData,
-  };
+  const updatePostResponse = await authenticatedApiRequest<PublicPostForApiDto>(
+    `/post/me/${id}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(newPost),
+    },
+  );
 
-  let post;
-
-  try {
-    post = await postRepository.update(id, newPost);
-  } catch (e: unknown) {
-    if (e instanceof Error) {
-      return makeResult({
-        formState: makePartialPublicPost(formDataToObject),
-        errors: [e.message],
-      });
-    }
+  if (!updatePostResponse.success) {
     return makeResult({
-      formState: makePartialPublicPost(formDataToObject),
-      errors: ["Erro desconhecido!"],
+      formState: PublicPostSchemaForApi.parse(formDataToObject),
+      errors: updatePostResponse.errors,
     });
   }
 
-  updateTag("posts");
-  updateTag(`post-${post.slug}`);
+  const post = updatePostResponse.data;
+  (updateTag("posts"), updateTag(`post-${post.slug}`));
 
   return makeResult({
-    formState: makePublicPostFromDb(post),
+    formState: PublicPostSchemaForApi.parse(post),
     success: makeRandomString(),
   });
 }

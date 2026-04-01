@@ -1,6 +1,6 @@
 import { SinglePost } from "@/components/SinglePost";
 import { SpinLoader } from "@/components/SpinLoader";
-import { findPostBySlug } from "@/lib/post/public";
+import { findPublicPostBySlugFromApi } from "@/lib/post/public";
 import { Metadata } from "next";
 import { Suspense } from "react";
 
@@ -15,7 +15,13 @@ export async function generateMetadata({
 
   const { slug } = await slugParam;
 
-  const post = await findPostBySlug(slug);
+  const postRes = await findPublicPostBySlugFromApi(slug);
+
+  if (!postRes.success) {
+    return {};
+  }
+
+  const post = postRes.data;
 
   return {
     title: post.title,

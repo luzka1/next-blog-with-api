@@ -5,17 +5,19 @@ import { InputText } from "@/components/InputText";
 import { MarkDownEditor } from "@/components/MarkDownEditor";
 import { useActionState, useEffect, useState } from "react";
 import { ImageUploader } from "../ImageUploader";
-import { makePartialPublicPost, PublicPostDTO } from "@/dto/post/dto";
 import { createPostAction } from "@/actions/post/create-post-action";
 import { Button } from "@/components/Button";
 import { showMessage } from "@/adapters/showMessage";
 import { updatePostAction } from "@/actions/post/update-post-action";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ur } from "zod/locales";
+import {
+  PublicPostForApiDto,
+  PublicPostSchemaForApi,
+} from "@/lib/post/schemas";
 
 type ManagePostFormUpdateProps = {
   mode: "update";
-  publicPost: PublicPostDTO;
+  publicPost: PublicPostForApiDto;
 };
 
 type ManagePostFormCreateProps = {
@@ -44,13 +46,13 @@ export function ManagePostForm(props: ManagePostFormProps) {
   };
 
   const initialState = {
-    formState: makePartialPublicPost(publicPost),
+    formState: PublicPostSchemaForApi.parse(publicPost || {}),
     errors: [],
   };
 
   const [state, action, isPending] = useActionState(
     actionsMap[mode],
-    initialState
+    initialState,
   );
 
   useEffect(() => {
@@ -59,6 +61,8 @@ export function ManagePostForm(props: ManagePostFormProps) {
     }
   }, [state.errors]);
 
+  console.log(state);
+
   useEffect(() => {
     if (state.success) {
       showMessage.dismiss();
@@ -66,11 +70,11 @@ export function ManagePostForm(props: ManagePostFormProps) {
     }
   }, [state.success]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (created === "1") {
       showMessage.dismiss();
       showMessage.success("Post criado com sucesso!");
-      const url = new URL(window.location.href)
+      const url = new URL(window.location.href);
       url.searchParams.delete("created");
       router.replace(url.toString());
     }
@@ -99,15 +103,6 @@ export function ManagePostForm(props: ManagePostFormProps) {
           type="text"
           readOnly
           defaultValue={formState.slug}
-          disabled={isPending}
-        />
-
-        <InputText
-          labelText="Autor"
-          name="author"
-          placeholder="Digite o nome do autor"
-          type="text"
-          defaultValue={formState.author}
           disabled={isPending}
         />
 
@@ -148,13 +143,15 @@ export function ManagePostForm(props: ManagePostFormProps) {
           disabled={isPending}
         />
 
-        <InputCheckbox
-          labelText="Publicar?"
-          name="published"
-          type="checkbox"
-          defaultChecked={formState.published || false}
-          disabled={isPending}
-        />
+        {mode === "update" && (
+          <InputCheckbox
+            labelText="Publicar?"
+            name="published"
+            type="checkbox"
+            defaultChecked={formState.published || false}
+            disabled={isPending}
+          />
+        )}
 
         <Button type="submit" className="self-start">
           Enviar

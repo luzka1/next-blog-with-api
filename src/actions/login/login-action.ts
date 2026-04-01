@@ -1,10 +1,6 @@
 "use server";
 
-import {
-  createLoginSession,
-  createLoginSessionFromApi,
-  verifyPassword,
-} from "@/lib/login/manage-login";
+import { createLoginSessionFromApi } from "@/lib/login/manage-login";
 import { LoginSchema } from "@/lib/login/schemas";
 import { apiRequest } from "@/utils/api-request";
 import { asyncDelay } from "@/utils/async-delay";

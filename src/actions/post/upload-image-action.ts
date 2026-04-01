@@ -1,8 +1,7 @@
 "use server";
 
-import { verifyLoginSession } from "@/lib/login/manage-login";
-import { mkdir, writeFile } from "fs/promises";
-import { extname, resolve } from "path";
+import { getLoginSessionForApi } from "@/lib/login/manage-login";
+import { authenticatedApiRequest } from "@/utils/authenticaded-api-request";
 
 type UploadImageAction = {
   url: string;
@@ -10,10 +9,9 @@ type UploadImageAction = {
 };
 
 export async function uploadImageAction(
-  formData: FormData
+  formData: FormData,
 ): Promise<UploadImageAction> {
-
-  const isAuthenticated = await verifyLoginSession();
+  const isAuthenticated = await getLoginSessionForApi();
 
   const makeResult = ({ url = "", error = "" }) => ({ url, error });
 
@@ -21,7 +19,10 @@ export async function uploadImageAction(
     return makeResult({ error: "Imagem inválida" });
   }
 
-  if (!isAuthenticated) return makeResult({error: "Usuário não autenticado, faça login novamente!"})
+  if (!isAuthenticated)
+    return makeResult({
+      error: "Usuário não autenticado, faça login novamente!",
+    });
 
   const file = formData.get("file");
 
@@ -33,23 +34,23 @@ export async function uploadImageAction(
     return makeResult({ error: "Imagem inválida" });
   }
 
-  const imageExtension = extname(file.name);
-  const uniqueImageName = `${Date.now()}${imageExtension}`;
+  const uploadResponse = await authenticatedApiRequest<{ url: string }>(
+    `/upload`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
 
-  const uploadDir = process.env.IMAGE_UPLOADER_DIR || "uploads";
-  const uploadFullPath = resolve(process.cwd(), "public", uploadDir);
-  await mkdir(uploadFullPath, { recursive: true });
+  if (!uploadResponse.success) {
+    return makeResult({
+      error: uploadResponse.errors[0],
+    });
+  }
 
-  const fileArrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(fileArrayBuffer);
+  console.log(uploadResponse.data);
 
-  const fileFullPath = resolve(uploadFullPath, uniqueImageName);
-
-  await writeFile(fileFullPath, buffer);
-
-  const imgServerUrl = process.env.IMAGE_SERVER_URL || "http://localhost:3000/uploads";
-
-  const url = `${imgServerUrl}/${uniqueImageName}`;
+  const url = `${process.env.IMAGE_SERVER_URL}${uploadResponse.data.url}`;
 
   return makeResult({ url });
 }

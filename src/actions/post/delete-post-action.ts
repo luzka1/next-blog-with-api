@@ -1,11 +1,20 @@
 "use server";
 
-import { verifyLoginSession } from "@/lib/login/manage-login";
+import { getLoginSessionForApi } from "@/lib/login/manage-login";
+import { PublicPostForApiDto } from "@/lib/post/schemas";
 import { postRepository } from "@/repositories/post";
+import { authenticatedApiRequest } from "@/utils/authenticaded-api-request";
+import { error } from "console";
 import { updateTag } from "next/cache";
 
 export async function deletePostAction(id: string) {
-  const isAuthenticated = await verifyLoginSession();
+  const isAuthenticated = await getLoginSessionForApi();
+
+  if (!isAuthenticated) {
+    return {
+      error: "Usuário não autenticado, faça login novamente!",
+    };
+  }
 
   if (!id || typeof id !== "string") {
     return {
@@ -13,25 +22,39 @@ export async function deletePostAction(id: string) {
     };
   }
 
-    if (!isAuthenticated) {
-      return {
-        error: "Usuário não autenticado, faça login novamente!",
-      }
-    }
+  const postReponse = await authenticatedApiRequest<PublicPostForApiDto>(
+    `/post/me/${id}`,
+    {
+      headers: {
+        "Content-Type": "application-json",
+      },
+    },
+  );
 
-  let post;
+  if (!postReponse.success) {
+    return {
+      error: "Erro ao encontrar post",
+    };
+  }
 
-  try {
-    post = await postRepository.delete(id);
-  } catch (e: unknown) {
-    if (e instanceof Error) {
-      return { error: e.message };
-    }
-    return { error: "Erro desconhecido!" };
+  const deletePostResponse = await authenticatedApiRequest<PublicPostForApiDto>(
+    `/post/me/${id}`,
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application-json",
+      },
+    },
+  );
+
+  if (!deletePostResponse.success) {
+    return {
+      error: "Erro ao apagar o post",
+    };
   }
 
   updateTag("posts");
-  updateTag(`post-${post.slug}`);
+  updateTag(`post-${postReponse.data.slug}`);
   updateTag("single-post");
 
   return {

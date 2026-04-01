@@ -1,9 +1,15 @@
-import { findAllPublicPosts } from "@/lib/post/public";
+import { findAllPublicPostsFromApi } from "@/lib/post/public";
 import { PostCoverImage } from "../PostCoverImage";
 import { PostSummary } from "../PostSummary";
 
 export async function PostsList() {
-  const posts = await findAllPublicPosts();
+  const postsRes = await findAllPublicPostsFromApi();
+
+  if (!postsRes.success) {
+    return null;
+  }
+
+  const posts = postsRes.data;
 
   if (posts.length <= 1) return null;
 

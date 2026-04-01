@@ -1,7 +1,7 @@
-import { makePublicPostFromDb } from "@/dto/post/dto";
-import { findPostById } from "@/lib/post/admin";
+import { findPostByIdFromApiAdmin } from "@/lib/post/admin";
 import { notFound } from "next/navigation";
 import { ManagePostForm } from "../ManagePostForm";
+import { PublicPostSchemaForApi } from "@/lib/post/schemas";
 
 type AdminSinglePostPageProps = {
   idParam: Promise<{ id: string }>;
@@ -9,11 +9,14 @@ type AdminSinglePostPageProps = {
 
 export async function AdminSinglePost({ idParam }: AdminSinglePostPageProps) {
   const { id } = await idParam;
-  const post = await findPostById(id);
+  const postRes = await findPostByIdFromApiAdmin(id);
 
-  if (!post) return notFound();
+  if (!postRes.success) {
+    (console.log(postRes.errors), notFound());
+  }
 
-  const publicPost = makePublicPostFromDb(post);
+  const post = postRes.data;
+  const publicPost = PublicPostSchemaForApi.parse(post);
 
   return (
     <div className="flex flex-col gap-6">
