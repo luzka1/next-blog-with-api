@@ -7,6 +7,7 @@ import { LoaderCircleIcon, LogInIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useActionState, useEffect } from "react";
+import { HoneypotInput } from "../HoneypotInput";
 
 export function LoginForm() {
   const initialState = {
@@ -72,6 +73,8 @@ export function LoginForm() {
               Entrar
             </>
           )}
+
+          <HoneypotInput />
 
           {isPending && (
             <div className="flex gap-2 items-center justify-center">
